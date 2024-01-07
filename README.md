@@ -28,6 +28,7 @@ test/build_dataset.folders:
 python scripts/train.py --args.load conf/ablations/baseline.yml --save_path runs/baseline/
 ```
 ### inference
+to inference you just need the inference directory and the weights.pth, which can be easily integrated to diffusion framework.
 ```shell
 python infer_one.py
 ```
