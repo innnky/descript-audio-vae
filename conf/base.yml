@@ -87,12 +87,12 @@ AudioDataset.without_replacement: true
 
 train/build_dataset.folders:
   all_data:
-    - /home/ai_music/data
+    - /directory/to/your/training/data
 
 val/build_dataset.folders:
   all_val:
-    - /home/ai_music/test
+    - /directory/to/your/validation/data
 
 test/build_dataset.folders:
   all_test:
-    - /home/ai_music/test
+    - /directory/to/your/test/data

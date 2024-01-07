@@ -6,6 +6,23 @@ Similar to  [Hifi-vaegan](https://github.com/OpenNSP/Hifi-vaegan)
 ```shell
 pip install -e ".[dev]"
 ```
+### data prepare
+```
+prepare your 44.1khz data and modify following config in conf/base.yaml
+
+train/build_dataset.folders:
+  all_data:
+    - /directory/to/your/training/data
+
+val/build_dataset.folders:
+  all_val:
+    - /directory/to/your/validation/data
+
+test/build_dataset.folders:
+  all_test:
+    - /directory/to/your/test/data
+```
+
 ### training
 ```shell
 python scripts/train.py --args.load conf/ablations/baseline.yml --save_path runs/baseline/
