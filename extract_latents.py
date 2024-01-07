@@ -14,7 +14,7 @@ model = load_model(weights_path, device)
 all_wavs = glob(f'{wav_root}/**/*.wav', recursive=True)
 
 for wav_path in tqdm(all_wavs):
-    latent_path = wav_path.replace('.wav', 'latent.pt')
+    latent_path = wav_path.replace('.wav', '.latent.pt')
     z = encode_from_file(model, wav_path)
     torch.save(z, latent_path)
 

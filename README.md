@@ -1,3 +1,22 @@
+# Descript Audio VAE
+This repository is VAE GAN modified from Descript Audio Codec, which replaces the RVQ with VAE (which is easier for diffusion models to train on).
+Similar to  [Hifi-vaegan](https://github.com/OpenNSP/Hifi-vaegan)
+
+### requirements
+```shell
+pip install -e ".[dev]"
+```
+### training
+```shell
+python scripts/train.py --args.load conf/ablations/baseline.yml --save_path runs/baseline/
+```
+### inference
+```shell
+python infer_one.py
+```
+
+
+original DAC readme:
 # Descript Audio Codec (.dac): High-Fidelity Audio Compression with Improved RVQGAN
 
 This repository contains training and inference scripts
