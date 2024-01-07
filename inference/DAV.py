@@ -2,17 +2,15 @@ import math
 from typing import List
 from typing import Union
 
+import librosa
 import numpy as np
+import soundfile
 import torch
-from audiotools import AudioSignal
-from audiotools.ml import BaseModel
 from torch import nn
 
-from .base import CodecMixin
-from dac.nn.layers import Snake1d
-from dac.nn.layers import WNConv1d
-from dac.nn.layers import WNConvTranspose1d
-from dac.nn.quantize import ResidualVectorQuantize
+from .layers import Snake1d
+from .layers import WNConv1d
+from .layers import WNConvTranspose1d
 import torch.distributions as D
 
 def init_weights(m):
@@ -144,7 +142,7 @@ class Decoder(nn.Module):
         return self.model(x)
 
 
-class DAC(BaseModel, CodecMixin):
+class DAV(nn.Module):
     def __init__(
         self,
         encoder_dim: int = 64,
@@ -199,7 +197,6 @@ class DAC(BaseModel, CodecMixin):
         self.sample_rate = sample_rate
         self.apply(init_weights)
 
-        self.delay = self.get_delay()
 
     def preprocess(self, audio_data, sample_rate):
         if sample_rate is None:
@@ -337,44 +334,38 @@ class DAC(BaseModel, CodecMixin):
             "kl_loss": kl_loss
         }
 
+def load_model(ckpt_path, device):
+    ckpt = torch.load(ckpt_path, map_location=device)
+    model = DAV(**ckpt['metadata']['kwargs'])
+    model = model.to(device)
+    model = model.eval()
+    model.load_state_dict(ckpt['state_dict'])
+    return model
 
-if __name__ == "__main__":
-    import numpy as np
-    from functools import partial
 
-    model = DAC().to("cpu")
+def encode_from_wav44k_numpy(model, wav44k_numpy):
+    device = model.parameters().__next__().device
+    x = torch.FloatTensor(wav44k_numpy).unsqueeze(0).unsqueeze(0).to(device)
+    with torch.no_grad():
+        audio_data = model.preprocess(x, 44100)
+        z, posterior, kl_loss = model.encode(
+            audio_data, None
+        )
+        out = posterior.mode
+    return out.squeeze(0).cpu()
 
-    for n, m in model.named_modules():
-        o = m.extra_repr()
-        p = sum([np.prod(p.size()) for p in m.parameters()])
-        fn = lambda o, p: o + f" {p/1e6:<.3f}M params."
-        setattr(m, "extra_repr", partial(fn, o=o, p=p))
-    print(model)
-    print("Total # of params: ", sum([np.prod(p.size()) for p in model.parameters()]))
+def encode_from_file(model, wav_path):
+    wav44k_numpy, _ = librosa.load(wav_path, sr=44100, mono=True)
+    return encode_from_wav44k_numpy(model, wav44k_numpy)
 
-    length = 88200 * 2
-    x = torch.randn(1, 1, length).to(model.device)
-    x.requires_grad_(True)
-    x.retain_grad()
+def decode_to_wav44k_numpy(model, z):
+    device = model.parameters().__next__().device
+    z = z.unsqueeze(0).to(device)
+    with torch.no_grad():
+        x = model.decode(z)
+    return x.squeeze(0).squeeze(0).cpu().numpy()
 
-    # Make a forward pass
-    out = model(x)["audio"]
-    print("Input shape:", x.shape)
-    print("Output shape:", out.shape)
+def decode_to_file(model, z, wav_path):
+    wav44k_numpy = decode_to_wav44k_numpy(model, z)
+    soundfile.write(wav_path, wav44k_numpy, 44100)
 
-    # Create gradient variable
-    grad = torch.zeros_like(out)
-    grad[:, :, grad.shape[-1] // 2] = 1
-
-    # Make a backward pass
-    out.backward(grad)
-
-    # Check non-zero values
-    gradmap = x.grad.squeeze(0)
-    gradmap = (gradmap != 0).sum(0)  # sum across features
-    rf = (gradmap != 0).sum()
-
-    print(f"Receptive field: {rf.item()}")
-
-    x = AudioSignal(torch.randn(1, 1, 44100 * 60), 44100)
-    model.decompress(model.compress(x, verbose=True), verbose=True)
