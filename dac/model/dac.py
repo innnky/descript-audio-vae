@@ -12,7 +12,7 @@ from .base import CodecMixin
 from dac.nn.layers import Snake1d
 from dac.nn.layers import WNConv1d
 from dac.nn.layers import WNConvTranspose1d
-from dac.nn.quantize import ResidualVectorQuantize
+from dac.nn.quantize import ResidualVectorQuantize, VectorQuantize
 import torch.distributions as D
 
 def init_weights(m):
@@ -158,6 +158,7 @@ class DAC(BaseModel, CodecMixin):
         quantizer_dropout: bool = False,
         sample_rate: int = 44100,
         vae_latent_channels: int = 64,
+        vq_reg_codebook_size: int = 4096,
     ):
         super().__init__()
 
@@ -186,6 +187,12 @@ class DAC(BaseModel, CodecMixin):
         #     quantizer_dropout=quantizer_dropout,
         # )
 
+        self.quantizer = VectorQuantize(
+            input_dim=vae_latent_channels,
+            codebook_size=vq_reg_codebook_size,
+            codebook_dim=codebook_dim
+        )
+
         self.mean_proj = nn.Conv1d(latent_dim, vae_latent_channels, 1)
         self.logs_proj = nn.Conv1d(latent_dim, vae_latent_channels, 1)
 
@@ -199,7 +206,6 @@ class DAC(BaseModel, CodecMixin):
         self.sample_rate = sample_rate
         self.apply(init_weights)
 
-        self.delay = self.get_delay()
 
     def preprocess(self, audio_data, sample_rate):
         if sample_rate is None:
@@ -329,14 +335,16 @@ class DAC(BaseModel, CodecMixin):
             audio_data, n_quantizers
         )
 
+        z_q, commitment_loss, codebook_loss, indices, z_e = self.quantizer(z)
+
         x = self.decode(z)
         return {
             "audio": x[..., :length],
             "latent": z,
-            "posterior": posterior,
-            "kl_loss": kl_loss
+            "kl_loss": kl_loss,
+            "vq/commitment_loss": commitment_loss,
+            "vq/codebook_loss": codebook_loss,
         }
-
 
 if __name__ == "__main__":
     import numpy as np

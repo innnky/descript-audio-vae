@@ -10,6 +10,8 @@ DAC.n_codebooks: 9
 DAC.codebook_size: 1024
 DAC.codebook_dim: 8
 DAC.quantizer_dropout: 1.0
+DAC.vae_latent_channels: 64
+DAC.vq_reg_codebook_size: 4096
 
 # Discriminator
 Discriminator.sample_rate: 44100
@@ -44,7 +46,7 @@ lambdas:
   adv/gen_loss: 1.0
   vq/commitment_loss: 0.25
   vq/codebook_loss: 1.0
-  kl_loss: 0.5
+  kl_loss: 1.0
 
 VolumeNorm.db: [const, -16]
 
@@ -87,12 +89,12 @@ AudioDataset.without_replacement: true
 
 train/build_dataset.folders:
   all_data:
-    - /directory/to/your/training/data
+    - dump/dataset
 
 val/build_dataset.folders:
   all_val:
-    - /directory/to/your/validation/data
+    - dump/dataset_test
 
 test/build_dataset.folders:
   all_test:
-    - /directory/to/your/test/data
+    - dump/dataset_test

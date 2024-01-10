@@ -237,7 +237,10 @@ def train_loop(state, batch, accel, lambdas):
     with accel.autocast():
         out = state.generator(signal.audio_data, signal.sample_rate)
         recons = AudioSignal(out["audio"], signal.sample_rate)
-        kl_loss = out["kl_loss"]
+        kl_loss = out["kl_loss"].mean()
+        commitment_loss = out["vq/commitment_loss"].mean()
+        codebook_loss = out["vq/codebook_loss"].mean()
+
 
     with accel.autocast():
         output["adv/disc_loss"] = state.gan_loss.discriminator_loss(recons, signal)
@@ -260,7 +263,8 @@ def train_loop(state, batch, accel, lambdas):
             output["adv/feat_loss"],
         ) = state.gan_loss.generator_loss(recons, signal)
         output["kl_loss"] = kl_loss
-        # print([(k, v, output[k]) for k, v in lambdas.items() if k in output])
+        output["vq/commitment_loss"] = commitment_loss
+        output["vq/codebook_loss"] = codebook_loss
         output["loss"] = sum([v * output[k] for k, v in lambdas.items() if k in output])
 
     state.optimizer_g.zero_grad()
@@ -360,12 +364,7 @@ def train(
     val_batch_size: int = 10,
     num_workers: int = 8,
     val_idx: list = [0, 1, 2, 3, 4, 5, 6, 7],
-    lambdas: dict = {
-        "mel/loss": 100.0,
-        "adv/feat_loss": 2.0,
-        "adv/gen_loss": 1.0,
-        "kl_loss": 10
-    },
+    lambdas: dict =None,
 ):
     util.seed(seed)
     Path(save_path).mkdir(exist_ok=True, parents=True)
@@ -431,7 +430,7 @@ if __name__ == "__main__":
     args = argbind.parse_args()
     args["args.debug"] = int(os.getenv("LOCAL_RANK", 0)) == 0
     with argbind.scope(args):
-        with Accelerator(fp16=False) as accel:
+        with Accelerator() as accel:
             if accel.local_rank != 0:
                 sys.tracebacklimit = 0
             train(args, accel)
