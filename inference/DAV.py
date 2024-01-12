@@ -8,7 +8,7 @@ import soundfile
 import torch
 from torch import nn
 
-from dac.nn.quantize import VectorQuantize
+from .quantize import VectorQuantize
 from .layers import Snake1d
 from .layers import WNConv1d
 from .layers import WNConvTranspose1d
