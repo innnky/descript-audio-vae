@@ -1,10 +1,12 @@
+import matplotlib.pyplot as plt
+
 from inference.DAV import *
 import torch.nn.functional as F
 if __name__ == "__main__":
 
     weights_path = "runs/vqfixed/best/dac/weights.pth"
     audio_path = "测试音频.wav"
-    device = 'cuda:1'
+    device = 'cuda'
     model = load_model(weights_path, device)
 
     z = encode_from_file(model, audio_path)

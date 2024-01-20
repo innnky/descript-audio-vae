@@ -143,6 +143,21 @@ class Decoder(nn.Module):
     def forward(self, x):
         return self.model(x)
 
+mel_transform = None
+def get_mel(wav):
+    global mel_transform
+    if mel_transform is None:
+        from dac.model.spectrogram import LogMelSpectrogram
+        mel_transform = LogMelSpectrogram(
+            sample_rate=44100,
+            n_fft=2048,
+            win_length=2048,
+            hop_length=512,
+            f_min=40,
+            f_max=16000,
+            n_mels=128,
+        ).to(wav.device).to(wav.dtype)
+    return mel_transform(wav)
 
 class DAC(BaseModel, CodecMixin):
     def __init__(
@@ -186,12 +201,10 @@ class DAC(BaseModel, CodecMixin):
         #     codebook_dim=codebook_dim,
         #     quantizer_dropout=quantizer_dropout,
         # )
+        mel_dim = 128
 
-        self.quantizer = VectorQuantize(
-            input_dim=vae_latent_channels,
-            codebook_size=vq_reg_codebook_size,
-            codebook_dim=codebook_dim
-        )
+        self.mel_proj = nn.Conv1d(vae_latent_channels, mel_dim, 3, padding=1)
+
 
         self.mean_proj = nn.Conv1d(latent_dim, vae_latent_channels, 1)
         self.logs_proj = nn.Conv1d(latent_dim, vae_latent_channels, 1)
@@ -253,21 +266,16 @@ class DAC(BaseModel, CodecMixin):
                 Number of samples in input audio
         """
         z = self.encoder(audio_data)
-        # print('z after encoder', z.shape)
-        # z, codes, latents, commitment_loss, codebook_loss = self.quantizer(
-        #     z, n_quantizers
-        # )
-        # print('z after quantizer', z.shape)
-        # print('latents after quantizer', latents.shape)
         mean = self.mean_proj(z)
         logs = self.logs_proj(z)
         logs = torch.clamp(logs, min=-12, max=12)
-        # print('mean.mean', mean.mean(), 'logs.mean', logs.mean())
+
+
         posterior = D.Normal(mean, torch.exp(logs))
         prior = D.Normal(torch.zeros_like(mean), torch.ones_like(logs))
         kl_loss = D.kl_divergence(posterior, prior).mean()
 
-        return posterior.rsample(), posterior, kl_loss
+        return posterior.rsample(), posterior, kl_loss, mean
 
     def decode(self, z: torch.Tensor):
         """Decode given latent codes and return audio data
@@ -331,19 +339,26 @@ class DAC(BaseModel, CodecMixin):
         """
         length = audio_data.shape[-1]
         audio_data = self.preprocess(audio_data, sample_rate)
-        z, posterior, kl_loss = self.encode(
+        z, posterior, kl_loss, mean = self.encode(
             audio_data, n_quantizers
         )
+        assert not torch.isnan(z).any(), "z is nan"
+        pred_mel = self.mel_proj(mean)
+        assert not torch.isnan(pred_mel).any(), "pred_mel is nan"
 
-        z_q, commitment_loss, codebook_loss, indices, z_e = self.quantizer(z)
+        gt_mel = get_mel(audio_data)
+        assert not torch.isnan(gt_mel).any(), "gt_mel is nan"
+
+        mel_reg_loss = nn.functional.l1_loss(pred_mel, gt_mel)
 
         x = self.decode(z)
+        assert not torch.isnan(x).any(), "x decode is nan"
+
         return {
             "audio": x[..., :length],
             "latent": z,
             "kl_loss": kl_loss,
-            "vq/commitment_loss": commitment_loss,
-            "vq/codebook_loss": codebook_loss,
+            'mel_reg_loss': mel_reg_loss,
         }
 
 if __name__ == "__main__":
