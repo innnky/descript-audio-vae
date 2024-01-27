@@ -100,7 +100,6 @@ class LogMelSpectrogram(nn.Module):
         linear = self.spectrogram(x)
         x = self.mel_scale(linear)
         x = self.compress(x)
-        print(x.shape)
         if return_linear:
             return x, self.compress(linear)
 

@@ -238,7 +238,9 @@ def train_loop(state, batch, accel, lambdas):
         out = state.generator(signal.audio_data, signal.sample_rate)
         recons = AudioSignal(out["audio"], signal.sample_rate)
         kl_loss = out["kl_loss"].mean()
-        mel_reg_loss = out["mel_reg_loss"]
+        commitment_loss = out["vq/commitment_loss"].mean()
+        codebook_loss = out["vq/codebook_loss"].mean()
+
 
     with accel.autocast():
         output["adv/disc_loss"] = state.gan_loss.discriminator_loss(recons, signal)
@@ -261,7 +263,8 @@ def train_loop(state, batch, accel, lambdas):
             output["adv/feat_loss"],
         ) = state.gan_loss.generator_loss(recons, signal)
         output["kl_loss"] = kl_loss
-        output["mel_reg_loss"] = mel_reg_loss
+        output["vq/commitment_loss"] = commitment_loss
+        output["vq/codebook_loss"] = codebook_loss
         output["loss"] = sum([v * output[k] for k, v in lambdas.items() if k in output])
 
     state.optimizer_g.zero_grad()
