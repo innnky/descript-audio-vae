@@ -224,7 +224,7 @@ class DAC(BaseModel, CodecMixin):
 
         self.quantizer = VectorQuantize(
             input_dim=latent_dim,
-            codebook_size=2048,
+            codebook_size=128,
             codebook_dim=32
         )
 
