@@ -8,7 +8,7 @@ import soundfile
 import torch
 from torch import nn
 
-from dac.nn.quantize import VectorQuantize
+from .quantize import VectorQuantize
 from .layers import Snake1d
 from .layers import WNConv1d
 from .layers import WNConvTranspose1d
@@ -148,7 +148,7 @@ mel_transform = None
 def get_mel(wav):
     global mel_transform
     if mel_transform is None:
-        from dac.model.spectrogram import LogMelSpectrogram
+        from .spectrogram import LogMelSpectrogram
         mel_transform = LogMelSpectrogram(
             sample_rate=44100,
             n_fft=2048,
@@ -362,6 +362,22 @@ class DAV(nn.Module):
             "vq/codebook_loss": codebook_loss,
         }
 
+    @torch.no_grad()
+    @torch.inference_mode()
+    def encode_from_wav44k_tensor(self, x):
+        audio_data = self.preprocess(x, 44100)
+        posterior, kl_loss, commitment_loss, codebook_loss = self.encode(
+            audio_data, None
+        )
+        out = posterior.mode
+        return out / self.norm_ratio
+
+    @torch.no_grad()
+    @torch.inference_mode()
+    def decode_to_wav44k_tensor(self, z):
+        x = self.decode(z * self.norm_ratio)
+        return x
+
 def load_model(ckpt_path, device):
     ckpt = torch.load(ckpt_path, map_location=device)
     model = DAV(**ckpt['metadata']['kwargs'])
@@ -379,7 +395,7 @@ def encode_from_wav44k_numpy(model, wav44k_numpy):
         posterior, kl_loss, commitment_loss, codebook_loss = model.encode(
             audio_data, None
         )
-        out = posterior.rsample()
+        out = posterior.mode
     return out.squeeze(0).cpu()
 
 

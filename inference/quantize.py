@@ -5,6 +5,9 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from einops import rearrange
+from torch.nn.utils import weight_norm
+
+from .layers import WNConv1d
 
 
 class VectorQuantize(nn.Module):
@@ -24,7 +27,9 @@ class VectorQuantize(nn.Module):
         self.codebook_size = codebook_size
         self.codebook_dim = codebook_dim
 
-        self.codebook = nn.Embedding(codebook_size, input_dim)
+        self.in_proj = WNConv1d(input_dim, codebook_dim, kernel_size=1)
+        self.out_proj = WNConv1d(codebook_dim, input_dim, kernel_size=1)
+        self.codebook = nn.Embedding(codebook_size, codebook_dim)
 
     def forward(self, z):
         """Quantized the input tensor using a fixed codebook and returns
@@ -50,7 +55,7 @@ class VectorQuantize(nn.Module):
         """
 
         # Factorized codes (ViT-VQGAN) Project input into low-dimensional space
-        z_e = z  # z_e : (B x D x T)
+        z_e = self.in_proj(z)  # z_e : (B x D x T)
         z_q, indices = self.decode_latents(z_e)
 
         commitment_loss = F.mse_loss(z_e, z_q.detach(), reduction="none").mean([1, 2])
@@ -60,6 +65,7 @@ class VectorQuantize(nn.Module):
             z_e + (z_q - z_e).detach()
         )  # noop in forward pass, straight-through gradient estimator in backward pass
 
+        z_q = self.out_proj(z_q)
 
         return z_q, commitment_loss, codebook_loss, indices, z_e
 
