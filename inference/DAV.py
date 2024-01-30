@@ -171,9 +171,9 @@ class PostEncoderBlock(nn.Module):
             WNConv1d(
                 dim,
                 dim,
-                kernel_size=2 * stride,
+                kernel_size=3,
                 stride=stride,
-                padding=math.ceil(stride / 2),
+                padding=1,
             ),
         )
 

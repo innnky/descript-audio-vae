@@ -71,9 +71,9 @@ class PostEncoderBlock(nn.Module):
             WNConv1d(
                 dim,
                 dim,
-                kernel_size=2 * stride,
+                kernel_size=3,
                 stride=stride,
-                padding=math.ceil(stride / 2),
+                padding=1,
             ),
         )
 
@@ -270,8 +270,9 @@ class DAC(BaseModel, CodecMixin):
 
         z_mel = self.mel_proj(mel)
         z = z_audio_q + z_mel
+        l = z.shape[-1]
         z = self.post_encoder(z)
-
+        assert z.shape[-1] == l
         mean = self.mean_proj(z)  # [B, C, T]
         logs = self.logs_proj(z)  # [B, C, T]
         logs = torch.clamp(logs, min=-12, max=12)
