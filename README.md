@@ -2,6 +2,8 @@
 This repository is VAE GAN modified from Descript Audio Codec, which replaces the RVQ with VAE (which is easier for diffusion models to train on).
 Similar to  [Hifi-vaegan](https://github.com/OpenNSP/Hifi-vaegan)
 
+### pretrained model
+[V1.0: music 44100 - 64dim - 87hz ckpt](https://huggingface.co/innnky/vae-dac/resolve/main/v1.0_vae_dac_44100_87hz_64dim.pth)
 ### requirements
 ```shell
 pip install -e ".[dev]"
