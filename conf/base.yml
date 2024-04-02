@@ -46,7 +46,7 @@ lambdas:
   adv/gen_loss: 1.0
   vq/commitment_loss: 0.25
   vq/codebook_loss: 1.0
-  kl_loss: 1.0
+  kl_loss: 0.1
 
 VolumeNorm.db: [const, -16]
 
@@ -78,23 +78,25 @@ train/AudioDataset.n_examples: 10000000
 
 val/AudioDataset.duration: 5.0
 val/build_transform.augment_prob: 1.0
-val/AudioDataset.n_examples: 250
+val/AudioDataset.n_examples: 100
 
 test/AudioDataset.duration: 10.0
 test/build_transform.augment_prob: 1.0
-test/AudioDataset.n_examples: 1000
+test/AudioDataset.n_examples: 100
 
 AudioLoader.shuffle: true
 AudioDataset.without_replacement: true
 
 train/build_dataset.folders:
   all_data:
-    - dump/dataset
+    - /home/fish/bs
+  speech:
+    - /home/fish/genshin_data
 
 val/build_dataset.folders:
   all_val:
-    - dump/dataset_test
+    - val
 
 test/build_dataset.folders:
   all_test:
-    - dump/dataset_test
+    - val

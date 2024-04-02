@@ -5,7 +5,7 @@ from tqdm import tqdm
 
 wav_root = '/home/ai_music/data'
 
-from inference.DAV import *
+from inference.dav import *
 device = 'cuda:0'
 weights_path = "runs/baseline/best/dac/weights.pth"
 

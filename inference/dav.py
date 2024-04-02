@@ -357,27 +357,28 @@ def load_model(ckpt_path, device):
 
 def encode_from_wav44k_numpy(model, wav44k_numpy):
     device = model.parameters().__next__().device
-    x = torch.FloatTensor(wav44k_numpy).unsqueeze(0).unsqueeze(0).to(device)
+    x = torch.FloatTensor(wav44k_numpy).unsqueeze(1).to(device)
     with torch.no_grad():
         audio_data = model.preprocess(x, 44100)
         z, posterior, kl_loss = model.encode(
             audio_data, None
         )
         out = posterior.mode
-    return out.squeeze(0).cpu()
+    return out.cpu()
 
 def encode_from_file(model, wav_path):
-    wav44k_numpy, _ = librosa.load(wav_path, sr=44100, mono=True)
+    wav44k_numpy, _ = librosa.load(wav_path, sr=44100, mono=False)
     return encode_from_wav44k_numpy(model, wav44k_numpy)
 
 def decode_to_wav44k_numpy(model, z):
     device = model.parameters().__next__().device
-    z = z.unsqueeze(0).to(device)
+    z = z.to(device)
     with torch.no_grad():
         x = model.decode(z)
-    return x.squeeze(0).squeeze(0).cpu().numpy()
+    return x.squeeze(1).cpu().numpy().T
 
 def decode_to_file(model, z, wav_path):
     wav44k_numpy = decode_to_wav44k_numpy(model, z)
+    print(wav44k_numpy.shape)
     soundfile.write(wav_path, wav44k_numpy, 44100)
 
